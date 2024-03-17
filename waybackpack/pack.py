@@ -109,6 +109,7 @@ class Pack(object):
 
             try:
                 content = asset.fetch(session=self.session, raw=raw, root=root)
+                print("CONTENT:", content)
 
                 if content is None:
                     continue

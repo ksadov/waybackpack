@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import logging
+import time
 
 from .cdx import search
 from .pack import Pack
@@ -16,7 +17,13 @@ def parse_args():
         "--version", action="version", version="%(prog)s " + __version__
     )
 
-    parser.add_argument("url", help="The URL of the resource you want to download.")
+    parser.add_argument("url", help="The URL of the resource you want to download, or file containing a list of urls.")
+
+    parser.add_argument(
+        "--oldest_only",
+        action="store_true",
+        help="Only get the oldest snapshot.",
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -110,13 +117,13 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--delay", type=int, default=0, help="Sleep X seconds between each fetch."
+        "--delay", type=int, default=5, help="Sleep X seconds between each fetch."
     )
 
     parser.add_argument(
         "--delay-retry",
         type=int,
-        default=5,
+        default=30,
         help="Sleep X seconds between each post-error retry.",
     )
 
@@ -134,38 +141,54 @@ def main():
 
     session = Session(
         user_agent=args.user_agent,
-        follow_redirects=args.follow_redirects,
+        follow_redirects=True,
         max_retries=args.max_retries,
         delay_retry=args.delay_retry,
     )
 
-    snapshots = search(
-        args.url,
-        session=session,
-        from_date=args.from_date,
-        to_date=args.to_date,
-        uniques_only=args.uniques_only,
-        collapse=args.collapse,
-    )
-
-    timestamps = [snap["timestamp"] for snap in snapshots]
-
-    pack = Pack(args.url, timestamps=timestamps, session=session)
-
-    if args.dir:
-        pack.download_to(
-            args.dir,
-            raw=args.raw,
-            root=args.root,
-            ignore_errors=args.ignore_errors,
-            no_clobber=args.no_clobber,
-            progress=args.progress,
-            delay=args.delay,
-        )
+    # check if the url is a file
+    if args.url.endswith('.txt'):
+        with open(args.url, 'r') as f:
+            search_urls = f.readlines()
+            search_urls = [url.strip() for url in search_urls]
     else:
-        flag = "id_" if args.raw else ""
-        urls = (a.get_archive_url(flag) for a in pack.assets)
-        print("\n".join(urls))
+        search_urls = [args.url]
+
+    for search_url in search_urls:
+        print(f"Processing {search_url}")
+        time.sleep(args.delay)
+        save_dir = args.dir
+
+        snapshots = search(
+            search_url,
+            session=session,
+            from_date=args.from_date,
+            to_date=args.to_date,
+            uniques_only=args.uniques_only,
+            collapse=args.collapse,
+        )
+
+        if args.oldest_only:
+            snapshots = [snapshots[0]]
+
+        timestamps = [snap["timestamp"] for snap in snapshots]
+
+        pack = Pack(search_url, timestamps=timestamps, session=session)
+
+        if save_dir:
+            pack.download_to(
+                save_dir,
+                raw=args.raw,
+                root=args.root,
+                ignore_errors=args.ignore_errors,
+                no_clobber=args.no_clobber,
+                progress=args.progress,
+                delay=args.delay,
+            )
+        else:
+            flag = "id_" if args.raw else ""
+            urls = (a.get_archive_url(flag) for a in pack.assets)
+            print("\n".join(urls))
 
 
 if __name__ == "__main__":
