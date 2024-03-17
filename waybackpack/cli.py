@@ -175,6 +175,8 @@ def main():
 
         pack = Pack(search_url, timestamps=timestamps, session=session)
 
+        time.sleep(args.delay)
+
         if save_dir:
             pack.download_to(
                 save_dir,
