@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import time
+import urllib
 
 from .asset import Asset
 from .cdx import search
@@ -42,7 +43,7 @@ def replace_invalid_chars(path, fallback_char="_"):
 
 
 class Pack(object):
-    def __init__(self, url, timestamps=None, uniques_only=False, session=None):
+    def __init__(self, url, snapshots=None, uniques_only=False, session=None):
 
         self.url = url
         prefix = "http://" if urlparse(url).scheme == "" else ""
@@ -51,15 +52,12 @@ class Pack(object):
 
         self.session = session or Session()
 
-        if timestamps is None:
-            self.timestamps = [
-                snap["timestamp"]
-                for snap in search(url, uniques_only=uniques_only, session=self.session)
-            ]
-        else:
-            self.timestamps = timestamps
-
-        self.assets = [Asset(self.url, ts) for ts in self.timestamps]
+        self.snapshots = snapshots or search(
+            url,
+            uniques_only=uniques_only,
+            session=self.session
+        )
+        self.assets = [Asset(snapshot) for snapshot in self.snapshots]
 
     def download_to(
         self,
@@ -83,9 +81,14 @@ class Pack(object):
                 logger.info("Sleeping {0} seconds".format(delay))
                 time.sleep(delay)
 
-            path_head, path_tail = os.path.split(self.parsed_url.path)
-            if path_tail == "":
-                path_tail = "index.html"
+            path = urllib.parse.urlparse(asset.original_url).path[1:]
+
+            if path:
+                path_head, path_tail = path.rsplit('/', 1)
+                if not path_tail:
+                    path_tail = 'index.html'
+            else:
+                path_head, path_tail = '', 'index.html'
 
             filedir = os.path.join(
                 directory,

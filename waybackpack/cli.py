@@ -173,7 +173,7 @@ def main():
 
         timestamps = [snap["timestamp"] for snap in snapshots]
 
-        pack = Pack(search_url, timestamps=timestamps, session=session)
+        pack = Pack(search_url, snapshots=snapshots)
 
         time.sleep(args.delay)
 

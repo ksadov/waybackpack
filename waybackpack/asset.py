@@ -32,12 +32,12 @@ REDIRECT_PATTERNS = [
 
 
 class Asset(object):
-    def __init__(self, original_url, timestamp):
+    def __init__(self, snapshot):
         # Ensure timestamp is only numeric
-        if re.match(r"^[0-9]+\Z", timestamp) is None:
-            raise RuntimeError("invalid timestamp {!r}".format(timestamp))
-        self.timestamp = timestamp
-        self.original_url = original_url
+        self.timestamp = snapshot['timestamp']
+        self.original_url = snapshot['original']
+        if re.match(r"^[0-9]+\Z", self.timestamp) is None:
+            raise RuntimeError("invalid timestamp {!r}".format(self.timestamp))
 
     def get_archive_url(self, raw=False):
         flag = "id_" if raw else ""
